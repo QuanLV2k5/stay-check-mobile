@@ -1,14 +1,85 @@
 import {
+    useCallback,
+    useEffect,
+    useState,
+    type ReactNode,
+} from 'react'
+import {
     BarChart3,
     Building2,
+    CloudOff,
+    RefreshCw,
     Star,
     Users,
 } from 'lucide-react'
 
 import AppHeader from '../components/AppHeader'
 import BottomNavigation from '../components/BottomNavigation'
+import {
+    getPendingSurveyCount,
+    syncPendingSurveys,
+} from '../services/surveyService'
 
 function StatisticsPage() {
+    const [pendingCount, setPendingCount] = useState(0)
+    const [isLoading, setIsLoading] = useState(false)
+    const [syncMessage, setSyncMessage] = useState('')
+
+    const loadPendingCount = useCallback(async () => {
+        try {
+            const count = await getPendingSurveyCount()
+            setPendingCount(count)
+        } catch (error) {
+            console.error(
+                'Lỗi lấy số khảo sát chờ đồng bộ:',
+                error,
+            )
+
+            setPendingCount(0)
+        }
+    }, [])
+
+    const handleSyncNow = useCallback(async () => {
+        setIsLoading(true)
+        setSyncMessage('Đang đồng bộ dữ liệu...')
+
+        try {
+            const result = await syncPendingSurveys()
+
+            setSyncMessage(result.message)
+
+            const count = await getPendingSurveyCount()
+            setPendingCount(count)
+        } catch (error) {
+            console.error('Lỗi đồng bộ thủ công:', error)
+
+            setSyncMessage(
+                'Không thể đồng bộ dữ liệu. Vui lòng kiểm tra kết nối mạng và cấu hình Google Apps Script.',
+            )
+        } finally {
+            setIsLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        const timerId = window.setTimeout(() => {
+            loadPendingCount()
+        }, 0)
+
+        const handleOnline = () => {
+            window.setTimeout(() => {
+                handleSyncNow()
+            }, 1000)
+        }
+
+        window.addEventListener('online', handleOnline)
+
+        return () => {
+            window.clearTimeout(timerId)
+            window.removeEventListener('online', handleOnline)
+        }
+    }, [loadPendingCount, handleSyncNow])
+
     return (
         <div className="min-h-screen bg-slate-100">
             <div className="mx-auto min-h-screen max-w-md bg-slate-50 pb-24">
@@ -48,14 +119,60 @@ function StatisticsPage() {
                         />
                     </div>
 
+                    <div className="mt-6 rounded-2xl border border-amber-100 bg-amber-50 p-5">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-amber-600">
+                                <CloudOff size={22} />
+                            </div>
+
+                            <div className="flex-1">
+                                <h3 className="font-bold text-amber-900">
+                                    Hàng chờ đồng bộ
+                                </h3>
+
+                                <p className="mt-1 text-sm leading-6 text-amber-800">
+                                    Hiện có{' '}
+                                    <strong>{pendingCount}</strong>{' '}
+                                    khảo sát đang chờ gửi lên Google Sheets.
+                                </p>
+
+                                {syncMessage && (
+                                    <p className="mt-2 rounded-xl bg-white/70 px-3 py-2 text-xs leading-5 text-amber-900">
+                                        {syncMessage}
+                                    </p>
+                                )}
+
+                                <button
+                                    type="button"
+                                    onClick={handleSyncNow}
+                                    disabled={isLoading}
+                                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-bold text-amber-700 disabled:opacity-60"
+                                >
+                                    <RefreshCw
+                                        size={14}
+                                        className={
+                                            isLoading ? 'animate-spin' : ''
+                                        }
+                                    />
+
+                                    {isLoading
+                                        ? 'Đang đồng bộ...'
+                                        : 'Đồng bộ ngay'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
                         <h3 className="font-bold text-slate-900">
                             Dữ liệu đang được cập nhật
                         </h3>
 
                         <p className="mt-2 text-sm leading-6 text-slate-500">
-                            Khi kết nối Google Sheets hoàn tất, các chỉ số tại đây
-                            sẽ được lấy từ dữ liệu khảo sát thực tế.
+                            Các chỉ số tổng quan hiện đang dùng dữ liệu mẫu.
+                            Ở phiên bản tiếp theo, trang thống kê sẽ được kết nối
+                            trực tiếp với Google Sheets để hiển thị dữ liệu khảo sát
+                            thực tế.
                         </p>
                     </div>
                 </main>
@@ -67,7 +184,7 @@ function StatisticsPage() {
 }
 
 type StatBoxProps = {
-    icon: React.ReactNode
+    icon: ReactNode
     value: string
     label: string
 }

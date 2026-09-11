@@ -186,6 +186,9 @@ function SurveyPage() {
     const [isSubmitted, setIsSubmitted] =
         useState(false)
 
+    const [submitMessage, setSubmitMessage] =
+        useState('')
+
     const [isSubmitting, setIsSubmitting] =
         useState(false)
 
@@ -398,8 +401,9 @@ function SurveyPage() {
         }
 
         try {
-            await submitSurvey(payload)
+            const result = await submitSurvey(payload)
 
+            setSubmitMessage(result.message)
             setIsSubmitted(true)
 
             window.scrollTo({
@@ -413,7 +417,7 @@ function SurveyPage() {
             )
 
             window.alert(
-                'Không thể gửi dữ liệu khảo sát. Vui lòng kiểm tra kết nối và thử lại.',
+                'Không thể lưu dữ liệu khảo sát. Vui lòng thử lại.',
             )
         } finally {
             setIsSubmitting(false)
@@ -447,6 +451,7 @@ function SurveyPage() {
     if (isSubmitted) {
         return (
             <SuccessScreen
+                message={submitMessage}
                 onHome={() => navigate('/')}
                 onRestart={restartSurvey}
             />
@@ -1702,11 +1707,13 @@ function InfoBox({
 }
 
 type SuccessScreenProps = {
+    message: string
     onHome: () => void
     onRestart: () => void
 }
 
 function SuccessScreen({
+    message,
     onHome,
     onRestart,
 }: SuccessScreenProps) {
@@ -1725,9 +1732,8 @@ function SuccessScreen({
                 </h1>
 
                 <p className="mt-3 max-w-sm text-sm leading-6 text-slate-500">
-                    Cảm ơn bạn đã tham gia khảo sát.
-                    Thông tin của bạn đã được gửi đến hệ thống
-                    StayCheck để phục vụ tổng hợp và thống kê.
+                    {message ||
+                        'Cảm ơn bạn đã tham gia khảo sát. Thông tin của bạn đã được ghi nhận bởi StayCheck.'}
                 </p>
 
                 <div className="mt-8 w-full space-y-3">
